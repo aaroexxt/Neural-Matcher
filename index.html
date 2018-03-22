@@ -1,0 +1,301 @@
+<html>
+    <head>
+        <title>NetMatch Testing</title>
+        <script src="brain.js"></script>
+        <script src="lancasterStem.js"></script>
+    </head>
+    <body>
+        <script>
+        //WHEN THIS IS PORTED INTO NODE.JS, remove libraries and just use dependencies/modules from node itself
+        //stemmer: https://github.com/words/lancaster-stemmer
+        //brain.js: https://github.com/BrainJS/brain.js
+        //Awesome article on this: https://machinelearnings.co/text-classification-using-neural-networks-f5cd7b8765c6
+            var data = [
+                {"class":"greeting", "sentence":"how are you?"},
+                {"class":"greeting", "sentence":"how is your day?"},
+                {"class":"greeting", "sentence":"good day"},
+                {"class":"greeting", "sentence":"how is it going today?"},
+                {"class":"greeting", "sentence": "what's up"},
+                {"class":"greeting", "sentence": "hello"},
+
+                {"class":"day", "sentence":"How is your day going?"},
+                {"class":"day", "sentence":"What's your day like?"},
+
+                {"class":"goodbye", "sentence":"have a nice day"},
+                {"class":"goodbye", "sentence":"see you later"},
+                {"class":"goodbye", "sentence":"have a nice day"},
+                {"class":"goodbye", "sentence":"talk to you soon"},
+                {"class":"goodbye", "sentence":"bye"},
+
+                {"class":"sandwich", "sentence":"make me a sandwich"},
+                {"class":"sandwich", "sentence":"can you make a sandwich?"},
+                {"class":"sandwich", "sentence":"having a sandwich today?"},
+                {"class":"sandwich", "sentence":"what's for lunch?"},
+
+                {"class":"weather", "sentence":"What's the weather today?"},
+                {"class":"weather", "sentence":"Today's weather"},
+                {"class":"weather", "sentence":"Forecast for today"},
+                {"class":"weather", "sentence":"Today's forecast"},
+
+                {"class":"meaningOfLife", "sentence":"what's the meaning of life?"},
+
+                {"class":"joke", "sentence":"Tell me a joke"},
+                {"class":"joke", "sentence":"Give me another joke"},
+                {"class":"joke", "sentence":"Make me laugh"},
+                {"class":"joke", "sentence":"joke"},
+
+                {"class":"thanks", "sentence":"Thank you."},
+                {"class":"thanks", "sentence":"Thanks."},
+
+                {"class":"random", "sentence":"Give me a random number."},
+                {"class":"random", "sentence":"Random number from x to x"},
+
+                {"class":"turing", "sentence":"Do you pass the turing test?"},
+                {"class":"turing", "sentence":"Will you pass the turing test?"},
+
+                {"class":"weight", "sentence":"How much do you weigh?"},
+                {"class":"turing", "sentence":"What's your weight?"},
+
+                {"class":"badWord", "sentence":atob("ZnVjaw==")},
+                {"class":"badWord", "sentence":atob("c2hpdA==")},
+                {"class":"badWord", "sentence":atob("Yml0Y2g=")},
+                {"class":"badWord", "sentence":atob("YXNzaG9sZQ==")},
+                {"class":"badWord", "sentence":atob("YXNz")},
+                {"class":"badWord", "sentence":atob("bW90aGVyZnVja2Vy")},
+
+                {"class":"starwars", "sentence":"I'm your father"},
+                {"class":"starwars", "sentence":"Luke, I am your father"},
+
+                {"class":"beamup", "sentence":"Beam me up"},
+                {"class":"beamup", "sentence":"Beam me up, Scotty"},
+
+                {"class":"whosBetter", "sentence":"Who is better, you or Google?"},
+                {"class":"whosBetter", "sentence":"Who is better, you or Siri?"},
+                {"class":"whosBetter", "sentence":"Who is better"},
+                
+                {"class":"drive", "sentence":"Drive to location"},
+                {"class":"drive", "sentence":"Drive me to x location"},
+                {"class":"drive", "sentence":"Drive to"},
+                {"class":"drive", "sentence":"Drive me to"},
+
+                {"class":"call", "sentence":"Call x"},
+                //{"class":"call", "sentence":"Please call"},
+                {"class":"call", "sentence":"Call person"},
+
+                {"class":"text", "sentence":"Text"},
+                //{"class":"text", "sentence":"Please text"},
+                {"class":"text", "sentence":"Text person"},
+
+                {"class":"time", "sentence":"What's the time?"},
+                {"class":"time", "sentence":"Give me the time"},
+                {"class":"time", "sentence":"Time of day"},
+                {"class":"time", "sentence":"What's the time of day"},
+
+                {"class":"calendar", "sentence":"Check my calendar for"},
+                {"class":"calendar", "sentence":"Check my calendar"},
+
+                {"class":"reminder", "sentence":"Set a reminder for x time"},
+                {"class":"reminder", "sentence":"Remind me to x"},
+                {"class":"reminder", "sentence":"Remind me to do x"},
+                {"class":"reminder", "sentence":"Can you remind me to do x at x time"},
+
+                {"class":"securityMode", "sentence":"Switch to security mode"},
+                {"class":"securityMode", "sentence":"Switch to valet mode"},
+
+                {"class":"validateUser", "sentence":"Validate current user"},
+
+                {"class":"lock", "sentence":"Lock"},
+                {"class":"lock", "sentence":"Lock yourself"},
+
+                {"class":"shutDown", "sentence":"Turn yourself off"},
+                {"class":"shutDown", "sentence":"Shut down"},
+                {"class":"shutDown", "sentence":"Shutdown"},
+                
+                {"class":"restart", "sentence":"Restart yourself"},
+                {"class":"restart", "sentence":"Restart"},
+
+                {"class":"tempUp", "sentence":"Turn the temperature up"},
+                {"class":"tempUp", "sentence":"It's cold in here"},
+                {"class":"tempUp", "sentence":"Make it hotter"},
+
+                {"class":"tempDown", "sentence":"Turn the temperature down"},
+                {"class":"tempDown", "sentence":"It's hot in here"},
+                {"class":"tempDown", "sentence":"Make it colder"},
+
+                {"class":"temp", "sentence":"Set the temperature to x"},
+
+                {"class":"search", "sentence":"Search for"},
+                {"class":"search", "sentence":"Search on the internet for"},
+                {"class":"search", "sentence":"Find x on the internet"},
+                {"class":"search", "sentence":"Give me information about x"},
+
+                //{"class":"", "sentence":""},
+
+
+            ];
+
+            console.log("Sentences in training data: "+data.length);
+            var NeuralMatcher = {
+                words: [],
+                documents: [],
+                classes: [],
+                ignore_words: ["!",":",";","?",",",".","x"],
+                punctuation: ["!",":",";","?",",","."],
+                stemmer: lancasterStemmer,
+                cutoffOutput: 0.3,
+
+                preprocessData: function(data) {
+                    NeuralMatcher.words = [];
+                    NeuralMatcher.classes = [];
+                    NeuralMatcher.documents = [];
+                    for (var i=0; i<data.length; i++) { //preprocessing
+                        NeuralMatcher.documents.push([data[i].sentence, data[i].class]);//don't want split sentence since it is done in postprocessing
+                        var sentence = data[i].sentence.split(" ");
+
+                        for (var j=0; j<sentence.length; j++) { //tokenization
+                            for (var b=0; b<NeuralMatcher.punctuation.length; b++) {
+                                if (sentence[j].substring(0,1) == NeuralMatcher.punctuation[b]) {
+                                    sentence[j] = sentence[j].substring(1,sentence[j].length); //splice out punctuation
+                                } else if (sentence[j].substring(sentence[j].length-1, sentence[j].length) == NeuralMatcher.punctuation[b]) {
+                                    sentence[j] = sentence[j].substring(0,sentence[j].length-1);
+                                }
+                            }
+                            NeuralMatcher.words.push(sentence[j]);
+                        }
+
+                        if (NeuralMatcher.classes.indexOf(data[i].class) == -1) {
+                            NeuralMatcher.classes.push(data[i].class);
+                        }
+
+                    }
+
+                    var trueWords = [];
+                    for (var i=0; i<NeuralMatcher.words.length; i++) {
+                        if (NeuralMatcher.ignore_words.indexOf(NeuralMatcher.words[i]) == -1) {
+                            trueWords.push(NeuralMatcher.stemmer(NeuralMatcher.words[i].toLowerCase())); //stem it
+                        } else {
+                            console.log("word "+NeuralMatcher.words[i]+" found in ignore_words dict")
+                            //NeuralMatcher.words.splice(NeuralMatcher.ignore_words.indexOf(NeuralMatcher.words[i]), 1);
+                        }
+                    }
+                    NeuralMatcher.words = trueWords;
+
+                    NeuralMatcher.words = NeuralMatcher.words.filter(function (value, index, self) { //uniqueify
+                        return self.indexOf(value) === index;
+                    });
+
+                    console.log(NeuralMatcher.words.length+" unique stemmed words after preprocessing\n"+JSON.stringify(NeuralMatcher.words))
+                },
+
+
+                bagOfWords: function(sentence, words) {
+                    if (typeof words == "undefined") {
+                        words = NeuralMatcher.words; //default
+                    }
+                    sentence = sentence.split(" ");
+                    for (var i=0; i<sentence.length; i++) { //tokenization
+                        for (var b=0; b<NeuralMatcher.punctuation.length; b++) {
+                            if (sentence[i].substring(0,1) == NeuralMatcher.punctuation[b]) {
+                                sentence[i] = sentence[i].substring(1,sentence[i].length); //splice out punctuation
+                            } else if (sentence[i].substring(sentence[i].length-1, sentence[i].length) == NeuralMatcher.punctuation[b]) {
+                                sentence[i] = sentence[i].substring(0,sentence[i].length-1);
+                            }
+                        }
+                        sentence[i] = NeuralMatcher.stemmer(sentence[i].toLowerCase()); //stem it
+                    }
+
+                    var bag = []; //make a blank array
+                    for (var i=0; i<words.length; i++) {
+                        bag.push(0);
+                    }
+
+                    for (var i=0; i<sentence.length; i++) {
+                        for (var j=0; j<words.length; j++) {
+                            if (words[j] == sentence[i]) {
+                                //console.log("bag match: word "+words[j]+", sentence word "+sentence[i]+", i="+i+", j="+j)
+                                bag[j] = 1;
+                            }
+                        }
+                    }
+                    return bag;
+                },
+
+                generateTrainingData: function() {
+
+                    var training_data = []; //generate that training data!
+
+                    for (var i=0; i<NeuralMatcher.documents.length; i++) {
+                        var bag = NeuralMatcher.bagOfWords(NeuralMatcher.documents[i][0], NeuralMatcher.words);
+
+                        var output = [];
+                        for (var j=0; j<NeuralMatcher.classes.length; j++) {
+                            output.push(0);
+                        }
+                        var classIndex = NeuralMatcher.classes.indexOf(NeuralMatcher.documents[i][1]);
+                        if (classIndex == -1) {
+                            console.error("ClassIndex is -1, training error");
+                        } else {
+                            output[classIndex] = 1;
+                            training_data.push({"input": bag, "output": output})
+                        }
+                    }
+
+                    return training_data;
+                },
+
+                trainNet: function(net, trainingData, callback) {
+                    var training = net.train(trainingData, {
+                        iterations: 20000,
+                        //errorThresh: 0.00001,
+                        errorThresh: 0.0001,
+                        log: false,
+                        logPeriod: 10,
+                        learningRate: 0.3,
+                        momentum: 0.1,
+                        callback: callback,
+                        callbackPeriod: 100,
+                        timeout: 300000
+                    });
+                    return training;
+                },
+
+                getOutput: function(net, sentence) {
+                    var bag = NeuralMatcher.bagOfWords(sentence, NeuralMatcher.words);
+                    var output = net.run(bag);
+                    var prob = [];
+                    var probClasses = [];
+                    for (var i=0; i<output.length; i++) {
+                        if (output[i] < NeuralMatcher.cutoffOutput) {
+                            prob.push(0);
+                        } else {
+                            prob.push(1);
+                            probClasses.push([NeuralMatcher.classes[i], output[i]]);
+                        }
+                    }
+                    return [output,prob,probClasses];
+                },
+
+                classify: function(net, sentence) {
+                    return NeuralMatcher.getOutput(net, sentence)[2];
+                }
+            }
+
+            console.log("Training data made...");
+
+
+            var net = new brain.NeuralNetwork({
+                hiddenLayers: [15]
+            }); //net.toJSON for the future
+
+            NeuralMatcher.preprocessData(data);
+            var td = NeuralMatcher.generateTrainingData(); //uses preprocessed data
+            console.log("training data\n"+JSON.stringify(td));
+            console.log("training net now.")
+            NeuralMatcher.trainNet(net, td, function(net){console.log("training error: "+net.error+", iterations: "+net.iterations);})
+            console.log("done training net. Ready for input.")
+
+            NeuralMatcher.classify(net, "hello my name is aaron")
+            
+        </script>
+    </body>
+</html>
